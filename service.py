@@ -1,22 +1,16 @@
+# CAMADA DE SERVIÇO (Aula 6: Regras de Negócio)
+#
+# O que muda da aula passada: toda função agora recebe "db: Session" e repassa
+# para o repository. As REGRAS continuam exatamente as mesmas de antes —
+# é só o jeito de guardar o dado que mudou, não a regra em si.
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 import repository
 from models import ClienteModel, ItemPedidoModel, PedidoModel, ProdutoModel
+from schemas import ClienteCreate, ItemCreate, ProdutoCreate, StatusPedido
 
-from schemas import (
-    ClienteCreate,
-    ClienteResponse,
-    ItemCreate,
-    ItemResponse,
-    PedidoCreate,
-    PedidoResponse,
-    ProdutoCreate,
-    ProdutoResponse,
-    StatusPedido,
-    Categoria
-)
-
+# A ordem da lista define o fluxo permitido do pedido
 ORDEM_STATUS = [
     StatusPedido.RECEBIDO,
     StatusPedido.EM_PREPARO,
@@ -36,7 +30,7 @@ def listar_clientes(db: Session) -> list[ClienteModel]:
 
 
 def buscar_cliente(db: Session, cliente_id: int) -> ClienteModel:
-    cliente = repository.buscar_cliente(db,cliente_id)
+    cliente = repository.buscar_cliente(db, cliente_id)
     if cliente is None:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
     return cliente
@@ -47,8 +41,8 @@ def cadastrar_produto(db: Session, dados: ProdutoCreate) -> ProdutoModel:
     produto = ProdutoModel(
         nome=dados.nome,
         categoria=dados.categoria.value,
-        preco=dados.preco
-    ) 
+        preco=dados.preco,
+    )
     return repository.salvar_produto(db, produto)
 
 
@@ -56,7 +50,7 @@ def listar_produtos(db: Session) -> list[ProdutoModel]:
     return repository.listar_produtos(db)
 
 
-def buscar_produto(db:Session, produto_id: int) -> ProdutoModel:
+def buscar_produto(db: Session, produto_id: int) -> ProdutoModel:
     produto = repository.buscar_produto(db, produto_id)
     if produto is None:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
@@ -66,10 +60,7 @@ def buscar_produto(db:Session, produto_id: int) -> ProdutoModel:
 # ----- Pedidos -----
 def criar_pedido(db: Session, cliente_id: int) -> PedidoModel:
     buscar_cliente(db, cliente_id)  # se o cliente não existir, já dá erro 404
-    pedido = PedidoModel(
-        "cliente_id": cliente_id,
-        "status": StatusPedido.RECEBIDO.value
-    )
+    pedido = PedidoModel(cliente_id=cliente_id, status=StatusPedido.RECEBIDO.value)
     return repository.salvar_pedido(db, pedido)
 
 
@@ -87,20 +78,18 @@ def adicionar_item(db: Session, pedido_id: int, dados: ItemCreate) -> PedidoMode
     if pedido.status != StatusPedido.RECEBIDO.value:
         raise HTTPException(status_code=400, detail="Pedido não aceita mais itens")
 
-    produto = buscar_produto(db,dados.produto_id)
+    produto = buscar_produto(db, dados.produto_id)
 
     item = ItemPedidoModel(
         pedido_id=pedido.id,
         produto_id=produto.id,
         nome_produto=produto.nome,
-        preco=produto.preco,
-        quantidade=dados.quantidade
+        preco=produto.preco,  # guarda o preço do momento da compra
+        quantidade=dados.quantidade,
     )
-
-    repository.adicionar_item(db,item)
-    db.refresh(pedido)
+    repository.adicionar_item(db, item)
+    db.refresh(pedido)  # recarrega o pedido para já vir com o item novo em pedido.itens
     return pedido
-
 
 
 def atualizar_status(db: Session, pedido_id: int, novo_status: StatusPedido) -> PedidoModel:
@@ -117,4 +106,10 @@ def atualizar_status(db: Session, pedido_id: int, novo_status: StatusPedido) -> 
     if pedido.status == StatusPedido.RECEBIDO.value and len(pedido.itens) == 0:
         raise HTTPException(status_code=400, detail="Pedido sem itens")
 
-    return repository.atualizar_status_pedido(db,pedido,novo_status.value)
+    return repository.atualizar_status_pedido(db, pedido, novo_status.value)
+
+
+def calcular_total(pedido: PedidoModel) -> float:
+    """Função auxiliar: soma os itens. Fica aqui (service) porque é uma regra,
+    não um acesso a dado."""
+    return round(sum(item.preco * item.quantidade for item in pedido.itens), 2)
