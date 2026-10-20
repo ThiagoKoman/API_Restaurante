@@ -5,11 +5,11 @@ pedidos = []
 
 
 # ----- Clientes -----
-def salvar_cliente(cliente: dict) -> dict:
-    cliente["id"] = len(clientes) + 1
-    clientes.append(cliente)
+def salvar_cliente(db: Session, cliente: ClienteModel) -> ClienteModel:
+    db.add(cliente)         #Monta o insert no DB
+    db.commit()             #Executa a query no DB
+    db.refresh(cliente)     #Busca o id gerado no DB
     return cliente
-
 
 def listar_clientes() -> list:
     return clientes

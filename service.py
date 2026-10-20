@@ -1,6 +1,8 @@
 from fastapi import HTTPException
+from sqlalchemy.orm import Session
 
 import repository
+from models import ClienteModel, ItemPedidoModel, PedidoModel, ProdutoModel
 
 from schemas import (
     ClienteCreate,
@@ -24,80 +26,87 @@ ORDEM_STATUS = [
 
 
 # ----- Clientes -----
-def cadastrar_cliente(dados: ClienteCreate) -> dict:
-    return repository.salvar_cliente(dados.model_dump())
+def cadastrar_cliente(db: Session, dados: ClienteCreate) -> ClienteModel:
+    cliente = ClienteModel(**dados.model_dump())
+    return repository.salvar_cliente(db, cliente)
 
 
-def listar_clientes() -> list:
-    return repository.listar_clientes()
+def listar_clientes(db: Session) -> list[ClienteModel]:
+    return repository.listar_clientes(db)
 
 
-def buscar_cliente(cliente_id: int) -> dict:
-    cliente = repository.buscar_cliente(cliente_id)
+def buscar_cliente(db: Session, cliente_id: int) -> ClienteModel:
+    cliente = repository.buscar_cliente(db,cliente_id)
     if cliente is None:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
     return cliente
 
 
 # ----- Produtos -----
-def cadastrar_produto(dados: ProdutoCreate) -> dict:
-    return repository.salvar_produto(dados.model_dump())
+def cadastrar_produto(db: Session, dados: ProdutoCreate) -> ProdutoModel:
+    produto = ProdutoModel(
+        nome=dados.nome,
+        categoria=dados.categoria.value,
+        preco=dados.preco
+    ) 
+    return repository.salvar_produto(db, produto)
 
 
-def listar_produtos() -> list:
-    return repository.listar_produtos()
+def listar_produtos(db: Session) -> list[ProdutoModel]:
+    return repository.listar_produtos(db)
 
 
-def buscar_produto(produto_id: int) -> dict:
-    produto = repository.buscar_produto(produto_id)
+def buscar_produto(db:Session, produto_id: int) -> ProdutoModel:
+    produto = repository.buscar_produto(db, produto_id)
     if produto is None:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
     return produto
 
 
 # ----- Pedidos -----
-def criar_pedido(cliente_id: int) -> dict:
-    buscar_cliente(cliente_id)  # se o cliente não existir, já dá erro 404
-    pedido = {
+def criar_pedido(db: Session, cliente_id: int) -> PedidoModel:
+    buscar_cliente(db, cliente_id)  # se o cliente não existir, já dá erro 404
+    pedido = PedidoModel(
         "cliente_id": cliente_id,
-        "status": StatusPedido.RECEBIDO,
-        "itens": [],
-        "total": 0,
-    }
-    return repository.salvar_pedido(pedido)
+        "status": StatusPedido.RECEBIDO.value
+    )
+    return repository.salvar_pedido(db, pedido)
 
 
-def buscar_pedido(pedido_id: int) -> dict:
-    pedido = repository.buscar_pedido(pedido_id)
+def buscar_pedido(db: Session, pedido_id: int) -> PedidoModel:
+    pedido = repository.buscar_pedido(db, pedido_id)
     if pedido is None:
         raise HTTPException(status_code=404, detail="Pedido não encontrado")
     return pedido
 
 
-def adicionar_item(pedido_id: int, dados: ItemCreate) -> dict:
-    pedido = buscar_pedido(pedido_id)
+def adicionar_item(db: Session, pedido_id: int, dados: ItemCreate) -> PedidoModel:
+    pedido = buscar_pedido(db, pedido_id)
 
     # Regra 1: só pode incluir itens enquanto o pedido está RECEBIDO
-    if pedido["status"] != StatusPedido.RECEBIDO:
+    if pedido.status != StatusPedido.RECEBIDO.value:
         raise HTTPException(status_code=400, detail="Pedido não aceita mais itens")
 
-    produto = buscar_produto(dados.produto_id)
+    produto = buscar_produto(db,dados.produto_id)
 
-    item = {
-        "produto_id": produto["id"],
-        "nome": produto["nome"],
-        "preco": produto["preco"],  # guarda o preço do momento da compra
-        "quantidade": dados.quantidade,
-    }
-    pedido["itens"].append(item)
-    pedido["total"] = round(pedido["total"] + item["preco"] * item["quantidade"], 2)
+    item = ItemPedidoModel(
+        pedido_id=pedido.id,
+        produto_id=produto.id,
+        nome_produto=produto.nome,
+        preco=produto.preco,
+        quantidade=dados.quantidade
+    )
+
+    repository.adicionar_item(db,item)
+    db.refresh(pedido)
     return pedido
 
 
-def atualizar_status(pedido_id: int, novo_status: StatusPedido) -> dict:
-    pedido = buscar_pedido(pedido_id)
 
-    posicao_atual = ORDEM_STATUS.index(pedido["status"])
+def atualizar_status(db: Session, pedido_id: int, novo_status: StatusPedido) -> PedidoModel:
+    pedido = buscar_pedido(db, pedido_id)
+
+    posicao_atual = ORDEM_STATUS.index(StatusPedido(pedido.status))
     posicao_nova = ORDEM_STATUS.index(novo_status)
 
     # Regra 2: o status só pode avançar para o próximo da lista
@@ -105,8 +114,7 @@ def atualizar_status(pedido_id: int, novo_status: StatusPedido) -> dict:
         raise HTTPException(status_code=400, detail="Transição de status inválida")
 
     # Regra 3: não pode preparar um pedido vazio
-    if pedido["status"] == StatusPedido.RECEBIDO and len(pedido["itens"]) == 0:
+    if pedido.status == StatusPedido.RECEBIDO.value and len(pedido.itens) == 0:
         raise HTTPException(status_code=400, detail="Pedido sem itens")
 
-    pedido["status"] = novo_status
-    return pedido
+    return repository.atualizar_status_pedido(db,pedido,novo_status.value)
