@@ -1,6 +1,6 @@
 # CAMADA DE MODELOS DO BANCO (Aula 8: ORM)
 #
-# Diferença para o schemas.py:
+# DiferenÃ§a para o schemas.py:
 #   - schemas.py  -> formato dos dados na API (Pydantic)
 #   - models.py   -> formato das TABELAS no banco (SQLAlchemy)
 #
@@ -10,6 +10,14 @@ from sqlalchemy.orm import relationship
 
 from database import Base
 
+#User Model
+class UsuarioModel(Base):
+    __tablename__ = "usuarios"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, nullable=False, unique=True, index=True)
+    senha_hash = Column(String, nullable=False)
+    perfil = Column(String, nullable=False, default="CLIENTE")
 
 class ClienteModel(Base):
     __tablename__ = "clientes"
@@ -36,7 +44,7 @@ class PedidoModel(Base):
     cliente_id = Column(Integer, ForeignKey("clientes.id"), nullable=False)
     status = Column(String, nullable=False, default="RECEBIDO")
 
-    # "itens" não é uma coluna: é o ORM buscando automaticamente
+    # "itens" nÃ£o Ã© uma coluna: Ã© o ORM buscando automaticamente
     # todas as linhas de ItemPedidoModel que apontam para este pedido.
     itens = relationship("ItemPedidoModel", backref="pedido", cascade="all, delete-orphan")
 
@@ -47,6 +55,6 @@ class ItemPedidoModel(Base):
     id = Column(Integer, primary_key=True, index=True)
     pedido_id = Column(Integer, ForeignKey("pedidos.id"), nullable=False)
     produto_id = Column(Integer, ForeignKey("produtos.id"), nullable=False)
-    nome_produto = Column(String, nullable=False)  # guardamos o nome e o preço
-    preco = Column(Float, nullable=False)  # do momento da compra (histórico)
+    nome_produto = Column(String, nullable=False)  # guardamos o nome e o preï¿½o
+    preco = Column(Float, nullable=False)  # do momento da compra (histï¿½rico)
     quantidade = Column(Integer, nullable=False)

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 import service
 from database import get_db
+from auth import exigir_admin
 from models import PedidoModel
 from schemas import (
     ClienteCreate,
@@ -18,15 +19,19 @@ from schemas import (
     ProdutoCreate,
     ProdutoResponse,
     StatusUpdate,
+    UsuarioCreate,
+    UsuarioResponse,
+    LoginRequest,
+    TokenResponse,
 )
 
+usuarios_router = APIRouter(prefix="/usuarios", tags=["Usuários"])
 clientes_router = APIRouter(prefix="/clientes", tags=["Clientes"])
 produtos_router = APIRouter(prefix="/produtos", tags=["Produtos"])
 pedidos_router = APIRouter(prefix="/pedidos", tags=["Pedidos"])
 
 
 def _pedido_para_response(pedido: PedidoModel) -> PedidoResponse:
-    
     return PedidoResponse(
         id=pedido.id,
         cliente_id=pedido.cliente_id,
@@ -43,6 +48,16 @@ def _pedido_para_response(pedido: PedidoModel) -> PedidoResponse:
         total=service.calcular_total(pedido),
     )
 
+@usuarios_router.post("",response_model=UsuarioResponse,status_code=201)
+def cadastrar_usuario(dados: UsuarioCreate, db: Session = Depends(get_db)):
+    return "" #service para cadastrar usuario
+
+@usuarios_router.post("/login",response_model=TokenResponse)
+def login(dados: LoginRequest, db: Session = Depends(get_db)):
+    #Recuperar token do service
+    #Configurar a resposta nos moldes do TokenResponse 
+    return "" 
+    
 
 # ----- Clientes -----
 @clientes_router.post("", response_model=ClienteResponse, status_code=201)

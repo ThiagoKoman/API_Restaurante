@@ -2,12 +2,10 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
-
 class Categoria(str, Enum):
     LANCHE = "LANCHE"
     BEBIDA = "BEBIDA"
     SOBREMESA = "SOBREMESA"
-
 
 class StatusPedido(str, Enum):
     RECEBIDO = "RECEBIDO"
@@ -15,6 +13,28 @@ class StatusPedido(str, Enum):
     SAIU_PARA_ENTREGA = "SAIU_PARA_ENTREGA"
     ENTREGUE = "ENTREGUE"
 
+class Perfil(str, Enum):
+    ADMIN = "ADMIN"
+    CLIENTE = "CLIENTE"
+
+# ----- Usuario -----
+class UsuarioCreate(BaseModel):
+    email: str
+    senha: str = Field(min_length=6,description="Minimo 6 caracteres")
+    perfil: Perfil = Perfil.CLIENTE 
+
+class UsuarioResponse(BaseModel):    
+    id: int
+    email: str
+    perfil: Perfil
+
+class LoginRequest(BaseModel):
+    email: str
+    senha: str
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
 
 # ----- Cliente -----
 class ClienteCreate(BaseModel):

@@ -13,8 +13,17 @@
 # salvar e buscar. Quem decide "pode ou não pode" é o service.py.
 from sqlalchemy.orm import Session
 
-from models import ClienteModel, ItemPedidoModel, PedidoModel, ProdutoModel
+from models import ClienteModel, ItemPedidoModel, PedidoModel, ProdutoModel, UsuarioModel
 
+# ----- Usuarios -----
+def salvar_usuario(db: Session, usuario: UsuarioModel) -> UsuarioModel: 
+    db.add(usuario)
+    db.commit()
+    db.refresh(usuario)
+    return usuario
+
+def buscar_usuario_por_email(db: Session, email: str) -> UsusarioMode | None:
+    return db.query(UsuarioModel).filter(UsuarioModel.email == email).first()
 
 # ----- Clientes -----
 def salvar_cliente(db: Session, cliente: ClienteModel) -> ClienteModel:
