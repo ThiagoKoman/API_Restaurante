@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 import jwt
 from fastapi import Depends, HTTPException
-from fastapi.security import HTTPAuthorozationCredentials, HTTPBearer
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
@@ -13,7 +13,7 @@ SECRET_KEY = "Sennacabulos54321"
 ALGORITH = "HS256"
 EXPIRACAO_TOKEN_MINUTOS = 60
 
-pwd_context = CryptContext(schemas=["bcrypt"], deprecated=auto)
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 security = HTTPBearer()
 
@@ -43,7 +43,7 @@ def decodificar_token(token: str) -> str:
 
 # 3. Dependêcias de acesso
 
-def get_usuario_atual(credentials: HTTPAuthorozationCredentials = Depends(security), db: Session = Depends(get_db)) -> UsuarioModel:
+def get_usuario_atual(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)) -> UsuarioModel:
     email = decodificar_token(credentials.credentials)
 
     usuario = db.query(UsuarioModel).filter(UsuarioModel.email == email).first()
@@ -52,7 +52,7 @@ def get_usuario_atual(credentials: HTTPAuthorozationCredentials = Depends(securi
     
     return usuario
 
-def exige_admin(usuario: UsuarioModel = Depends(get_usuario_atual)) -> UsuarioModel:
+def exigir_admin(usuario: UsuarioModel = Depends(get_usuario_atual)) -> UsuarioModel:
     if usuario.perfil != "ADMIN":
         raise HTTPException(status_code=403, detail="Apenas usuários administradores podem realizar essa ação")
     return usuario

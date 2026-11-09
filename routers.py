@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 import service
 from database import get_db
 from auth import exigir_admin
-from models import PedidoModel
+from models import PedidoModel, UsuarioModel
 from schemas import (
     ClienteCreate,
     ClienteResponse,
@@ -25,6 +25,7 @@ from schemas import (
     TokenResponse,
 )
 
+auth_router = APIRouter(tags=["Login"])
 usuarios_router = APIRouter(prefix="/usuarios", tags=["Usuários"])
 clientes_router = APIRouter(prefix="/clientes", tags=["Clientes"])
 produtos_router = APIRouter(prefix="/produtos", tags=["Produtos"])
@@ -50,14 +51,13 @@ def _pedido_para_response(pedido: PedidoModel) -> PedidoResponse:
 
 @usuarios_router.post("",response_model=UsuarioResponse,status_code=201)
 def cadastrar_usuario(dados: UsuarioCreate, db: Session = Depends(get_db)):
-    return "" #service para cadastrar usuario
+    return service.cadastrar_usuario(db,dados)
 
-@usuarios_router.post("/login",response_model=TokenResponse)
+@auth_router.post("/login",response_model=TokenResponse)
 def login(dados: LoginRequest, db: Session = Depends(get_db)):
-    #Recuperar token do service
-    #Configurar a resposta nos moldes do TokenResponse 
-    return "" 
-    
+    token = service.autenticar(db, dados)
+    return TokenResponse(access_token=token)
+
 
 # ----- Clientes -----
 @clientes_router.post("", response_model=ClienteResponse, status_code=201)
@@ -77,7 +77,12 @@ def buscar_cliente(cliente_id: int, db: Session = Depends(get_db)):
 
 # ----- Produtos -----
 @produtos_router.post("", response_model=ProdutoResponse, status_code=201)
-def cadastrar_produto(dados: ProdutoCreate, db: Session = Depends(get_db)):
+def cadastrar_produto(
+    dados: ProdutoCreate, 
+    db: Session = Depends(get_db),
+    usuario_logado: UsuarioModel = Depends(exigir_admin)
+):
+
     return service.cadastrar_produto(db, dados)
 
 
@@ -112,6 +117,12 @@ def consultar_status(pedido_id: int, db: Session = Depends(get_db)):
 
 
 @pedidos_router.patch("/{pedido_id}/status")
-def atualizar_status(pedido_id: int, dados: StatusUpdate, db: Session = Depends(get_db)):
+def atualizar_status(
+    pedido_id: int, 
+    dados: StatusUpdate, 
+    db: Session = Depends(get_db),
+    usuario_logado: UsuarioModel = Depends(exigir_admin)
+):
+
     pedido = service.atualizar_status(db, pedido_id, dados.status)
     return {"pedido_id": pedido.id, "status": pedido.status}
